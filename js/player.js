@@ -10,7 +10,7 @@ window.addEventListener('keydown', e => {
         if (state.gameState === 'CRASHED') {
             restartFloor();                       // keep score, re-roll current floor
         } else if (state.gameState === 'PLAYING') {
-            initGame(0);                          // full reboot from floor 0
+            restartFloor();                       // re-roll current floor, keep score
         }
     }
 });
@@ -34,7 +34,9 @@ function updatePlayer(floor) {
     }
 
     // Gravity ................................................
-    p.vy += state.gravity;
+    if (!p.isGrounded) {
+        p.vy += state.gravity;
+    }
 
     // Trail (motion blur) ...................................
     p.trail.push({ x: p.x, y: p.y });
@@ -48,6 +50,12 @@ function updatePlayer(floor) {
     // Vertical movement .....................................
     p.y += p.vy;
     p.isGrounded = false;
+
+    // Apply gravity only if not grounded and not just teleported
+    if (!p.isGrounded && !p._skipGravity) {
+        p.vy += state.gravity;
+    }
+    p._skipGravity = false; // Clear the flag after checking
 
     // Ground collision (current floor) ......................
     if (p.y + p.h >= (floor.groundY || FLOOR_GROUND_LOCAL)) {
@@ -67,8 +75,15 @@ function updatePlayer(floor) {
         if (el.type === 'platform') {
             const playerRect = { x: p.x, y: p.y, w: p.w, h: p.h };
             const platRect   = { x: el.x, y: el.y, w: el.w, h: el.h };
-            if (isColliding(playerRect, platRect) && p.vy > 0 &&
-                (p.y + p.h - p.vy) <= el.y + 6) {
+            
+            // Check if player is horizontally overlapping with platform
+            const horizontalOverlap = !(p.x + p.w < el.x || p.x > el.x + el.w);
+            
+            // Check if player's feet are at or below platform top
+            const playerBottom = p.y + p.h;
+            const onOrAbovePlatform = playerBottom >= el.y && playerBottom <= el.y + el.h + 20;
+            
+            if (horizontalOverlap && onOrAbovePlatform) {
                 p.y = el.y - p.h;
                 p.vy = 0;
                 p.isGrounded = true;
@@ -94,14 +109,37 @@ function updatePlayer(floor) {
                     e => e.type === 'portal' && e.portalId === el.portalId && e !== el
                 );
                 if (partner) {
+                    // Teleport to partner portal
                     p.x = partner.x + partner.w / 2 - p.w / 2;
                     p.y = partner.y + partner.h - p.h;
                     p.vy = 0;
+                    p.isGrounded = false;
                     // Cooldown both portals to prevent instant re-teleport
                     el._cooldown = 30;
                     partner._cooldown = 30;
                     const screenTopY = getFloorScreenTop(floor.index);
                     spawnParticles(partner.x + partner.w / 2, partner.y + screenTopY, '#33aaff', 12);
+                    
+                    // Check if there's a platform directly below or at the same level
+                    const playerBottom = p.y + p.h;
+                    let foundPlatform = false;
+                    for (let i = 0; i < floor.elements.length && !foundPlatform; i++) {
+                        const otherEl = floor.elements[i];
+                        if (otherEl.type === 'platform') {
+                            const horizontalOverlap = !(p.x + p.w < otherEl.x || p.x > otherEl.x + otherEl.w);
+                            const verticalDistance = otherEl.y - playerBottom;
+                            
+                            // If player is above or at platform level
+                            if (horizontalOverlap && verticalDistance >= -10 && verticalDistance <= 50) {
+                                // Place player exactly on top of platform
+                                p.y = otherEl.y - p.h;
+                                p.vy = 0;
+                                p.isGrounded = true;
+                                p._skipGravity = true; // Skip gravity in next frame
+                                foundPlatform = true; // Only snap to one platform
+                            }
+                        }
+                    }
                 }
             }
         }

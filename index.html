@@ -21,6 +21,17 @@
         <p>Controls: Move <span class="green">A/D</span> or <span class="green">←/→</span>, Jump <span class="green">W/Space</span>, Execute loop <span class="green">↓/S</span>. <span class="red">R</span> reboot, <span class="green">P</span> sprite.</p>
         <p>Goal: Collect <span class="green">Variables</span> to unlock each floor's gate, then reach <span class="green">return;</span> to ascend the compile tower. Avoid <span class="red">Bugs</span>!</p>
     </div>
+    <div style="position:fixed; bottom:20px; right:20px; display:flex; gap:10px;">
+        <button onclick="saveCurrentFloorScene()" style="padding:10px 20px; background:#006600; border:2px solid #00ff00; color:#00ff00; font-family:monospace; border-radius:4px; cursor:pointer;">
+            💾 保存场景
+        </button>
+        <button onclick="openSceneManager()" style="padding:10px 20px; background:#0066aa; border:2px solid #33aaff; color:#33aaff; font-family:monospace; border-radius:4px; cursor:pointer;">
+            📂 场景管理
+        </button>
+        <button onclick="openLevelEditor()" style="padding:10px 20px; background:#880066; border:2px solid #ff33aa; color:#ff33aa; font-family:monospace; border-radius:4px; cursor:pointer;">
+            🎨 编辑器
+        </button>
+    </div>
 
     <!-- Pixel Editor Modal -->
     <div id="pixel-editor-modal" style="display:none">
@@ -88,6 +99,8 @@
     <script src="js/player.js?v=5"></script>
     <script src="js/renderer.js?v=5"></script>
     <script src="js/pixel-editor.js?v=5"></script>
+    <script src="js/level-editor.js?v=5"></script>
     <script src="js/game.js?v=5"></script>
+    <script src="js/scene-manager.js?v=5"></script>
 </body>
 </html>

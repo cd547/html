@@ -4,6 +4,7 @@
 // …（说明略）
 registerGameplay({
     id: 'pointer', name: 'POINTER-gate', minFloor: 2, weight: 1.1,
+    floorHeightLevel: 2,
     codeText: 'void* ptr = &gate; *(ptr) = unlock; // deref → teleport',
 
     generateElements(floorIndex, floor) {
@@ -23,7 +24,11 @@ registerGameplay({
         const portalId = floorIndex * 100 + 1;
         elements.push({ type: 'portal', portalId, x: 540, y: gy - 22, w: 18, h: 22 });
         pt.add(540, gy - 22, 18, 22);
-        elements.push({ type: 'portal', portalId, x: platX + 20, y: platY - 22, w: 18, h: 22 });
+        // Portal above the platform, player will fall onto platform after teleport
+        // Portal y: 20, height: 22, player height: 24
+        // Player position after teleport: 20 + 22 - 24 = 18
+        // Player bottom: 18 + 24 = 42 (exactly at platform top)
+        elements.push({ type: 'portal', portalId, x: platX + 20, y: 20, w: 18, h: 22 });
 
         // Obstacles avoid variable + portals
         const count = 2 + Math.floor(Math.random() * 2) + Math.floor(floorIndex / 5);

@@ -194,10 +194,14 @@ function drawPlayer() {
     const psx = p.x;
     const psy = p.y + screenTopY;
 
-    // Trail (simple rect blur for performance)
+    // Trail (motion blur with proper fade)
+    const trailLength = p.trail.length;
     p.trail.forEach((t, i) => {
-        ctx.fillStyle = `rgba(0, 0, 0, ${0.1 * (i + 1)})`;
-        ctx.fillRect(t.x, t.y + screenTopY, p.w, p.h);
+        // Fade from faint to clearer (older to newer)
+        const alpha = 0.06 + (i / trailLength) * 0.12;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        // Slight vertical offset to simulate motion blur
+        ctx.fillRect(t.x, t.y + screenTopY + (i * 0.5), p.w, p.h);
     });
 
     // Self-heal: rebuild cursor sprite if data went missing

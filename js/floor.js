@@ -7,9 +7,17 @@ function generateFloor(floorIndex) {
     const gp = getGameplayForFloor(floorIndex);
     const mods = getModifiersForFloor(floorIndex);
 
-    // Floor dimensions — gameplay can request taller floors via desiredHeight
-    const scale = gp.desiredHeight || 1;
-    const height = scale * FLOOR_HEIGHT;
+    // Floor dimensions — gameplay can request taller floors via floorHeightLevel or desiredHeight
+    // floorHeightLevel: 1, 2, 3, or 5 (multipliers of FLOOR_HEIGHT)
+    // desiredHeight: legacy scale factor (backward compatible)
+    let height;
+    if (gp.floorHeightLevel && FLOOR_HEIGHT_LEVELS[gp.floorHeightLevel]) {
+        height = FLOOR_HEIGHT_LEVELS[gp.floorHeightLevel];
+    } else if (gp.desiredHeight) {
+        height = gp.desiredHeight * FLOOR_HEIGHT;
+    } else {
+        height = FLOOR_HEIGHT;
+    }
     const groundY = height - GROUND_BLOCK_H;
 
     // Build floor shell first so gameplay has groundY available
@@ -239,6 +247,11 @@ function initGame(scoreValue = 0) {
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.trail = [];
+    
+    // Initialize level editor if available
+    if (typeof initLevelEditor === 'function') {
+        initLevelEditor();
+    }
     state.player.facing = 1;
 
     linesCountEl.innerText = state.linesExecuted;

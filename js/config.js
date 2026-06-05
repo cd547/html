@@ -15,6 +15,19 @@ const GROUND_BLOCK_H    = 30;
 const CANVAS_W = 800;
 const CANVAS_H = 600;
 
+// ── Floor height levels ───────────────────────────────────
+// Gameplay modules can request taller floors via floorHeightLevel:
+//   1 = standard (default, 140px)
+//   2 = double height (280px)
+//   3 = triple height (420px)
+//   5 = penta height (700px)
+const FLOOR_HEIGHT_LEVELS = {
+    1: FLOOR_HEIGHT,
+    2: FLOOR_HEIGHT * 2,
+    3: FLOOR_HEIGHT * 3,
+    5: FLOOR_HEIGHT * 5
+};
+
 // ── Safe zones ────────────────────────────────────────────
 const SAFE_ZONES = [
     { x: 60,  w: 50 },
