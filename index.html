@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeWalker: Procedural Compile Dungeon</title>
+    <!-- Link to external styling stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="ui-header">
+        <div class="system-title">[ RUNNING: SYSTEM_CORE.EXE ]</div>
+        <div id="score-board">Floor: <span class="green" id="floor-display">1</span> | Lines: <span class="green" id="lines-count">0</span><span id="ram-display" style="display:none"> | RAM: <span id="ram-value" class="green">128</span>/1024MB <span id="ram-bar"><span id="ram-fill"></span></span></span></div>
+    </div>
+
+    <!-- The game loop rendering viewport -->
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="instructions">
+        <p>Controls: Move <span class="green">A/D</span> or <span class="green">←/→</span>, Jump <span class="green">W/Space</span>, Execute loop <span class="green">↓/S</span>. <span class="red">R</span> reboot, <span class="green">P</span> sprite.</p>
+        <p>Goal: Collect <span class="green">Variables</span> to unlock each floor's gate, then reach <span class="green">return;</span> to ascend the compile tower. Avoid <span class="red">Bugs</span>!</p>
+    </div>
+
+    <!-- Pixel Editor Modal -->
+    <div id="pixel-editor-modal" style="display:none">
+        <div id="pixel-editor-panel">
+            <div class="pe-header">
+                <span>PIXEL EDITOR — Design Your Sprite (16×24)</span>
+                <button class="pe-close" onclick="closePixelEditor()">✕</button>
+            </div>
+            <div class="pe-body">
+                <!-- Editor canvas (left) -->
+                <div class="pe-editor-wrap">
+                    <canvas id="editor-canvas" width="256" height="384"></canvas>
+                </div>
+                <!-- Preview + controls (right) -->
+                <div class="pe-side">
+                    <div class="pe-label">Preview (4×)</div>
+                    <canvas id="preview-canvas" width="64" height="96"></canvas>
+                    <div class="pe-colors">
+                        <div class="color-swatch active" data-color="#ffffff" style="background:#ffffff" onclick="setEditorColor('#ffffff')" title="White"></div>
+                        <div class="color-swatch" data-color="#00ff66" style="background:#00ff66" onclick="setEditorColor('#00ff66')" title="Green"></div>
+                        <div class="color-swatch" data-color="#ff3333" style="background:#ff3333" onclick="setEditorColor('#ff3333')" title="Red"></div>
+                        <div class="color-swatch" data-color="#33aaff" style="background:#33aaff" onclick="setEditorColor('#33aaff')" title="Blue"></div>
+                        <div class="color-swatch" data-color="#ffcc00" style="background:#ffcc00" onclick="setEditorColor('#ffcc00')" title="Yellow"></div>
+                        <div class="color-swatch eraser" data-color="eraser" onclick="setEditorColor('eraser')" title="Eraser">⌫</div>
+                    </div>
+                </div>
+            </div>
+            <div class="pe-footer">
+                <div class="pe-presets">
+                    <span>Presets:</span>
+                    <button onclick="loadPreset('Cursor')">Cursor</button>
+                    <button onclick="loadPreset('Robot')">Robot</button>
+                    <button onclick="loadPreset('Cat')">Cat</button>
+                    <button onclick="loadPreset('Runner')">Runner</button>
+                    <button onclick="loadPreset('Skull')">Skull</button>
+                </div>
+                <div class="pe-actions">
+                    <label class="pe-upload-btn">
+                        📁 Upload
+                        <input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(this.files[0])">
+                    </label>
+                    <button onclick="clearEditorGrid()">Clear</button>
+                    <button onclick="fillEditorGrid()">Fill</button>
+                    <button class="pe-save" onclick="saveSprite()">✓ Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modular game engine — load in dependency order -->
+    <script src="js/config.js?v=5"></script>
+    <script src="js/utils.js?v=5"></script>
+    <!-- Gameplay modules (register via base.js) -->
+    <script src="js/gameplay/base.js?v=5"></script>
+    <script src="js/gameplay/if.js?v=5"></script>
+    <script src="js/gameplay/for.js?v=5"></script>
+    <script src="js/gameplay/while.js?v=5"></script>
+    <script src="js/gameplay/switch.js?v=5"></script>
+    <script src="js/gameplay/async.js?v=5"></script>
+    <script src="js/gameplay/pointer.js?v=5"></script>
+    <script src="js/gameplay/ternary.js?v=5"></script>
+    <script src="js/gameplay/memoryleak.js?v=5"></script>
+    <!-- Engine -->
+    <script src="js/floor.js?v=5"></script>
+    <script src="js/player.js?v=5"></script>
+    <script src="js/renderer.js?v=5"></script>
+    <script src="js/pixel-editor.js?v=5"></script>
+    <script src="js/game.js?v=5"></script>
+</body>
+</html>
