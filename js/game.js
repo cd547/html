@@ -2,6 +2,11 @@
 // GAME — Main orchestrator: update loop, camera, boot sequence
 // ═══════════════════════════════════════════════════════════════
 
+// ── FPS tracking ───────────────────────────────────────────
+let lastFrameTime = performance.now();
+let frameCount = 0;
+let fps = 0;
+
 // ── Per-frame update — delegates to subsystems ────────────
 function update() {
     // Smooth camera scroll toward target
@@ -34,6 +39,22 @@ function update() {
 
 // ── Standard rAF game loop ────────────────────────────────
 function loop() {
+    // FPS calculation
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFrameTime >= 1000) {
+        fps = frameCount;
+        frameCount = 0;
+        lastFrameTime = now;
+        
+        // Update FPS display in header
+        const fpsValue = document.getElementById('fps-value');
+        if (fpsValue) {
+            fpsValue.textContent = fps;
+            fpsValue.className = fps >= 55 ? 'green' : (fps >= 30 ? 'yellow' : 'red');
+        }
+    }
+    
     update();
     draw();
     

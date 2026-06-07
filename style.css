@@ -29,6 +29,15 @@ body {
     color: #eaeaea;
 }
 
+#fps-display {
+    color: #666666;
+    font-size: 12px;
+}
+
+#fps-display .green { color: #00ff66; }
+#fps-display .yellow { color: #ffcc00; }
+#fps-display .red { color: #ff3333; }
+
 /* Strict hardware-accelerated crisp retro pixelated viewport scaling */
 #gameCanvas {
     border: 4px solid #ffffff;
