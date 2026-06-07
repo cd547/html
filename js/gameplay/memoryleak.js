@@ -38,11 +38,10 @@ registerModifier({
             extras.push({ type: 'variable', subType: 'freePtr', x: px, y: py, w: 14, h: 14, active: true });
             pt.add(px, py, 14, 14);
             if (py < gy - 20) {
-                const platform = { type: 'platform', x: px - 18, y: py + 20, w: 50, h: 10 };
-                // 检查是否与已有元素重叠
-                if (!pt.overlaps(platform.x, platform.y, platform.w, platform.h)) {
+                // 使用统一的 placeAt 方法，自动处理所有检查
+                const platform = pt.placeAt(px - 18, py + 20, 50, 10);
+                if (platform) {
                     extras.push(platform);
-                    pt.add(platform.x, platform.y, platform.w, platform.h);
                 }
             }
         }
@@ -53,6 +52,11 @@ registerModifier({
     updateFloor(floor) {
         const rate = 0.22 + floor.index * 0.05;
         state.ramUsage += rate;
+
+        // 每10关卡增加512MB内存上限，给玩家更多时间
+        const baseRamMax = 1024;
+        const bonusRam = Math.floor(floor.index / 10) * 512;
+        state.ramMax = baseRamMax + bonusRam;
 
         // Update DOM header bar
         const display = document.getElementById('ram-display');

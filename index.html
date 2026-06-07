@@ -14,6 +14,43 @@
         <div id="score-board">Floor: <span class="green" id="floor-display">1</span> | Lines: <span class="green" id="lines-count">0</span><span id="ram-display" style="display:none"> | RAM: <span id="ram-warning" style="display:none;color:#ff3333;">⚠</span> <span id="ram-value" class="green">128</span>/1024MB <span id="ram-bar"><span id="ram-fill"></span></span></span></div>
     </div>
 
+    <!-- Game Elements Legend Panel -->
+    <div id="elements-legend">
+        <div class="legend-title">// ELEMENTS</div>
+        <div class="legend-item">
+            <span class="legend-box legend-variable"></span>
+            <span class="legend-text">Variable</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-portal"></span>
+            <span class="legend-text">Portal</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-bug"></span>
+            <span class="legend-text">Bug</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-platform"></span>
+            <span class="legend-text">Platform</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-return"></span>
+            <span class="legend-text">return;</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-rescue"></span>
+            <span class="legend-text">Rescue</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-key"></span>
+            <span class="legend-text">Key</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-box legend-token"></span>
+            <span class="legend-text">Token</span>
+        </div>
+    </div>
+
     <!-- The game loop rendering viewport -->
     <canvas id="gameCanvas" width="950" height="600"></canvas>
 

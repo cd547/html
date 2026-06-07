@@ -72,8 +72,8 @@ function generateFloor(floorIndex) {
     floor.elements = elements;
 
     // ── Limit platform count to max 4 per floor ──
-    // 限制每个关卡的平台数量不超过4个
-    const platforms = elements.filter(e => e.type === 'platform' && !e.isRescue);
+    // 限制每个关卡的平台数量不超过4个（不包括出口平台）
+    const platforms = elements.filter(e => e.type === 'platform' && !e.isRescue && !e.isExitPlatform);
     if (platforms.length > 4) {
         console.log(`[Floor ${floorIndex}] Too many platforms (${platforms.length}), removing ${platforms.length - 4}`);
         // 保留前4个平台，删除多余的
@@ -82,6 +82,64 @@ function generateFloor(floorIndex) {
             const idx = elements.indexOf(p);
             if (idx > -1) elements.splice(idx, 1);
         });
+    }
+
+    // ── Ensure exit has a platform to stand on ──
+    // 如果出口在高处（超过地面40px以上），确保有平台可以到达
+    const exitY = floor.returnY != null ? Math.max(10, floor.returnY) : groundY - 50; // 限制出口最小高度，避免展示不全
+    const exitX = floor.returnX != null ? floor.returnX : 730;
+    // 更新 floor 的 returnY 以应用限制
+    if (floor.returnY != null && floor.returnY < 10) {
+        floor.returnY = 10;
+    }
+    const exitMinYForPlatform = (floor.groundY || FLOOR_GROUND_LOCAL) - 40;
+    
+    if (exitY < exitMinYForPlatform) {
+        // 出口在高处，需要在出口下方添加平台
+        const platformY = exitY + 50;  // 平台在出口下方50px处
+        const platformW = 60;
+        const platformX = exitX - platformW / 2 + 20;  // 居中对齐出口
+        
+        // 检查是否已有平台在该位置附近
+        let hasPlatformNearExit = elements.some(el => 
+            el.type === 'platform' && 
+            Math.abs(el.x - platformX) < platformW && 
+            Math.abs(el.y - platformY) < 30
+        );
+        
+        if (!hasPlatformNearExit) {
+            // 使用统一的 placeAt 方法，自动处理所有检查
+            let exitPlatform = pt.placeAt(platformX, platformY, platformW, 10, { isExitPlatform: true });
+            
+            // 如果放置失败，尝试向左或向右调整位置
+            if (!exitPlatform) {
+                console.log(`[Floor ${floorIndex}] Failed to place exit platform at (${platformX}, ${platformY}), trying adjusted positions`);
+                // 尝试左边一点
+                exitPlatform = pt.placeAt(platformX - 40, platformY, platformW, 10, { isExitPlatform: true });
+                if (!exitPlatform) {
+                    // 尝试右边一点
+                    exitPlatform = pt.placeAt(platformX + 40, platformY, platformW, 10, { isExitPlatform: true });
+                    if (!exitPlatform) {
+                        // 如果还失败，直接强制放置（不检查重叠）
+                        console.log(`[Floor ${floorIndex}] Force placing exit platform at (${platformX}, ${platformY})`);
+                        exitPlatform = {
+                            type: 'platform',
+                            x: platformX,
+                            y: platformY,
+                            w: platformW,
+                            h: 10,
+                            isExitPlatform: true
+                        };
+                        pt.add(platformX, platformY, platformW, 10);
+                    }
+                }
+            }
+            
+            if (exitPlatform) {
+                elements.push(exitPlatform);
+                console.log(`[Floor ${floorIndex}] Added platform for exit at (${exitPlatform.x}, ${exitPlatform.y})`);
+            }
+        }
     }
 
     // Build code text from all gameplays

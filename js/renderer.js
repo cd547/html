@@ -211,6 +211,34 @@ function drawFloor(floor, screenTopY) {
         }
     });
 
+    // 黄色救援传送门虚线关联
+    const rescuePortals = floor.elements.filter(e => e.type === 'portal' && e.isRescue);
+    if (rescuePortals.length >= 2) {
+        // 按 portalId 分组配对
+        const portalPairs = {};
+        rescuePortals.forEach(p => {
+            if (!portalPairs[p.portalId]) {
+                portalPairs[p.portalId] = [];
+            }
+            portalPairs[p.portalId].push(p);
+        });
+        
+        // 绘制每对传送门之间的虚线
+        Object.values(portalPairs).forEach(pair => {
+            if (pair.length === 2) {
+                const p1 = pair[0], p2 = pair[1];
+                ctx.strokeStyle = 'rgba(255, 204, 0, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 6]);
+                ctx.beginPath();
+                ctx.moveTo(p1.x + p1.w / 2, p1.y + screenTopY + p1.h / 2);
+                ctx.lineTo(p2.x + p2.w / 2, p2.y + screenTopY + p2.h / 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        });
+    }
+
     // Gate ...................................................
     // Check all gameplays for custom gate drawing (组合玩法)
     let gateDrawn = false;

@@ -16,36 +16,37 @@ registerGameplay({
         elements.push({ type: 'variable', subType: 'bool', x: vx, y: gy - 16, w: 16, h: 16, active: true });
         pt.add(vx, gy - 16, 16, 16);
 
-        // High platform + portals
-        const platX = 620, platY = 42;
-        const mainPlatform = { type: 'platform', x: platX, y: platY, w: 150, h: 10 };
-        // 检查是否与已有元素重叠
-        if (!pt.overlaps(mainPlatform.x, mainPlatform.y, mainPlatform.w, mainPlatform.h)) {
-            elements.push(mainPlatform);
-            pt.add(platX, platY, 150, 10);
+        // High platform + portals (使用统一的 placeAt 方法)
+        const platX = 620, platY = 42, platW = 160; // 平台延长到覆盖出口区域
+        let mainPlatform = pt.placeAt(platX, platY, platW, 10, { isExitPlatform: true });
+        if (!mainPlatform) {
+            // 如果放置失败，直接强制创建
+            console.log(`[Pointer] Failed to place main platform, forcing creation`);
+            mainPlatform = { type: 'platform', x: platX, y: platY, w: platW, h: 10, isExitPlatform: true };
+            pt.add(platX, platY, platW, 10);
         }
+        elements.push(mainPlatform);
 
         const portalId = floorIndex * 100 + 1;
         elements.push({ type: 'portal', portalId, x: 540, y: gy - 22, w: 18, h: 22 });
         pt.add(540, gy - 22, 18, 22);
-        // Portal above the platform, player will fall onto platform after teleport
-        // Portal y: 20, height: 22, player height: 24
-        // Player position after teleport: 20 + 22 - 24 = 18
-        // Player bottom: 18 + 24 = 42 (exactly at platform top)
-        elements.push({ type: 'portal', portalId, x: platX + 20, y: 20, w: 18, h: 22 });
+        // 传送门移动到离出口更近的位置，确保玩家传送后能很快到达出口
+        elements.push({ type: 'portal', portalId, x: 660, y: 20, w: 18, h: 22 });
 
         // Obstacles avoid variable + portals (reduced count)
         const count = Math.floor(Math.random() * 2);  // 0-1 platforms max (减少数量)
         for (let i = 0; i < count; i++) {
             if (Math.random() < 0.35) {
-                const ox = pt.tryPlaceX(20, 130, 610, gy - 16, 16, 18);
-                elements.push({ type: 'bug', x: ox, y: gy - 16, w: 20, h: 16 });
-                pt.add(ox, gy - 16, 20, 16);
+                // 使用 createBug 函数确保与蓝色/黄色元素保持安全距离
+                const bug = createBug(pt, elements, 60, 610, gy - 16);
+                if (bug) {
+                    elements.push(bug);
+                    pt.add(bug.x, bug.y, bug.w, bug.h);
+                }
             } else {
-                const platform = createPlatform(pt, 45, 80, 55, 80, 60, 610, 15);
+                const platform = pt.placeRandom(45, 80, 55, 80, 60, 610);
                 if (platform) {
                     elements.push(platform);
-                    pt.add(platform.x, platform.y, platform.w, platform.h);
                 }
             }
         }
@@ -83,7 +84,11 @@ registerGameplay({
         ctx.stroke(); ctx.setLineDash([]);
     },
 
-    setupFloor(floor) { floor.returnX = 700; floor.returnY = -8; },
+    // 恢复原本的出口位置设置（高处出口）
+    setupFloor(floor) { 
+        floor.returnX = 700; 
+        floor.returnY = 10;  // 高处出口，通过传送门到达（调整到合理高度避免展示不全）
+    },
 
     checkWinCondition(p, floor) {
         // pointer 玩法只需要玩家到达传送门位置即可

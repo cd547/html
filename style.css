@@ -165,3 +165,115 @@ body {
     background: #00ff66;
     transition: width 0.3s, background 0.3s;
 }
+
+/* ── Game Elements Legend Panel ─────────────────────── */
+#elements-legend {
+    position: fixed;
+    top: 80px;
+    left: 20px;
+    width: 120px;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+}
+
+.legend-title {
+    font-size: 11px;
+    color: #00ff66;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #222;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.legend-box {
+    width: 14px;
+    height: 14px;
+    position: relative;
+}
+
+/* Variable - 绿色实心方块 */
+.legend-variable {
+    background: #00ff66;
+}
+.legend-variable::after {
+    content: 'T';
+    position: absolute;
+    font-size: 9px;
+    font-weight: bold;
+    color: #fff;
+    top: 1px;
+    left: 3px;
+}
+
+/* Portal - 蓝色空心框 */
+.legend-portal {
+    border: 2px solid #33aaff;
+    background: rgba(51, 170, 255, 0.2);
+}
+
+/* Bug - 红色三角形 */
+.legend-bug {
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 14px solid #ff3333;
+    background: transparent;
+}
+
+/* Platform - 白色实心矩形 */
+.legend-platform {
+    width: 20px;
+    height: 5px;
+    background: #ffffff;
+}
+
+/* return; - 绿色空心框（传送门效果） */
+.legend-return {
+    border: 2px solid #00ff66;
+    background: rgba(0, 255, 102, 0.15);
+    animation: pulse-green 1.5s ease-in-out infinite;
+}
+
+/* Rescue - 黄色空心框 */
+.legend-rescue {
+    border: 2px solid #ffcc00;
+    background: rgba(255, 204, 0, 0.2);
+    animation: pulse-yellow 1.5s ease-in-out infinite;
+}
+
+/* Key - 橙色实心方块 */
+.legend-key {
+    background: #ff6600;
+}
+
+/* Token - 紫色实心方块 */
+.legend-token {
+    background: #aa33ff;
+}
+
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes pulse-yellow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.legend-text {
+    font-size: 11px;
+    color: #888;
+}

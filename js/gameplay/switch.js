@@ -9,22 +9,49 @@ registerGameplay({
     generateElements(floorIndex, floor, sharedPt) {
         const elements = [], pt = sharedPt || createEnhancedPlacementTracker();
         const gy = floor.groundY || FLOOR_GROUND_LOCAL;
+        const minKeyGap = 40; // 钥匙之间的最小间距
 
         // 3 keys first
-        const positions = [
-            { x: 160 + Math.random() * 100, y: gy - 14 },
-            { x: 320 + Math.random() * 100, y: 48 + Math.random() * 10 },
-            { x: 480 + Math.random() * 100, y: gy - 14 }
-        ];
+        const positions = [];
+        for (let i = 0; i < 3; i++) {
+            let attempts = 0;
+            let validPosition = false;
+            let pos = null;
+            
+            while (!validPosition && attempts < 20) {
+                if (i === 0) {
+                    pos = { x: 160 + Math.random() * 100, y: gy - 14 };
+                } else if (i === 1) {
+                    pos = { x: 320 + Math.random() * 100, y: 48 + Math.random() * 10 };
+                } else {
+                    pos = { x: 480 + Math.random() * 100, y: gy - 14 };
+                }
+                
+                // 检查与已生成钥匙的间距
+                validPosition = positions.every(existingPos => {
+                    const distance = Math.sqrt(
+                        Math.pow(pos.x - existingPos.x, 2) + 
+                        Math.pow(pos.y - existingPos.y, 2)
+                    );
+                    return distance >= minKeyGap;
+                });
+                
+                attempts++;
+            }
+            
+            if (pos) {
+                positions.push(pos);
+            }
+        }
+        
         positions.forEach((pos, idx) => {
             elements.push({ type: 'variable', subType: 'caseKey', x: pos.x, y: pos.y, w: 14, h: 14, keyIndex: idx, active: true });
             pt.add(pos.x, pos.y, 14, 14);
             if (pos.y < gy - 20) {
-                const platform = { type: 'platform', x: pos.x - 18, y: pos.y + 20, w: 50, h: 10 };
-                // 检查是否与已有元素重叠
-                if (!pt.overlaps(platform.x, platform.y, platform.w, platform.h)) {
+                // 使用统一的 placeAt 方法，自动处理所有检查
+                const platform = pt.placeAt(pos.x - 18, pos.y + 20, 50, 10);
+                if (platform) {
                     elements.push(platform);
-                    pt.add(platform.x, platform.y, platform.w, platform.h);
                 }
             }
         });
@@ -33,14 +60,16 @@ registerGameplay({
         const count = Math.floor(Math.random() * 2);  // 0-1 platforms max (减少数量)
         for (let i = 0; i < count; i++) {
             if (Math.random() < 0.35) {
-                const ox = pt.tryPlaceX(20, 130, 610, gy - 16, 16, 18);
-                elements.push({ type: 'bug', x: ox, y: gy - 16, w: 20, h: 16 });
-                pt.add(ox, gy - 16, 20, 16);
+                // 使用 createBug 函数确保与蓝色/黄色元素保持安全距离
+                const bug = createBug(pt, elements, 60, 610, gy - 16);
+                if (bug) {
+                    elements.push(bug);
+                    pt.add(bug.x, bug.y, bug.w, bug.h);
+                }
             } else {
-                const platform = createPlatform(pt, 45, 80, 55, 80, 60, 610, 15);
+                const platform = pt.placeRandom(45, 80, 55, 80, 60, 610);
                 if (platform) {
                     elements.push(platform);
-                    pt.add(platform.x, platform.y, platform.w, platform.h);
                 }
             }
         }

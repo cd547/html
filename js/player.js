@@ -104,7 +104,8 @@ function updatePlayer(floor) {
     // Horizontal movement + bounds ..........................
     p.x += p.vx;
     if (p.x < 0) p.x = 0;
-    if (p.x > CANVAS_W - p.w) p.x = CANVAS_W - p.w;
+    // 限制玩家在游戏区域内（不包括代码面板）
+    if (p.x > GAME_W - p.w) p.x = GAME_W - p.w;
 
     // Vertical movement .....................................
     p.y += p.vy;

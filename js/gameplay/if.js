@@ -19,11 +19,10 @@ registerGameplay({
             const ay = 48 + Math.random() * 10;
             elements.push({ type: 'variable', subType: 'bool', x: vx, y: ay, w: 16, h: 16, active: true });
             pt.add(vx, ay, 16, 16);
-            const platform = { type: 'platform', x: vx - 20, y: ay + 22, w: 56, h: 10 };
-            // 检查是否与已有元素重叠
-            if (!pt.overlaps(platform.x, platform.y, platform.w, platform.h)) {
+            // 使用统一的 placeAt 方法，自动处理所有检查
+            const platform = pt.placeAt(vx - 20, ay + 22, 56, 10);
+            if (platform) {
                 elements.push(platform);
-                pt.add(platform.x, platform.y, platform.w, platform.h);
             }
         }
 
@@ -31,14 +30,16 @@ registerGameplay({
         const count = Math.floor(Math.random() * 2);  // 0-1 platforms max (减少数量)
         for (let i = 0; i < count; i++) {
             if (Math.random() < 0.4) {
-                const bx = pt.tryPlaceX(20, 130, 610, gy - 16, 16, 18);
-                elements.push({ type: 'bug', x: bx, y: gy - 16, w: 20, h: 16 });
-                pt.add(bx, gy - 16, 20, 16);
+                // 使用 createBug 函数确保与蓝色/黄色元素保持安全距离
+                const bug = createBug(pt, elements, 60, 610, gy - 16);
+                if (bug) {
+                    elements.push(bug);
+                    pt.add(bug.x, bug.y, bug.w, bug.h);
+                }
             } else {
-                const platform = createPlatform(pt, 45, 80, 55, 80, 60, 610, 15);
+                const platform = pt.placeRandom(45, 80, 55, 80, 60, 610);
                 if (platform) {
                     elements.push(platform);
-                    pt.add(platform.x, platform.y, platform.w, platform.h);
                 }
             }
         }

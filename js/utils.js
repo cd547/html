@@ -23,7 +23,8 @@ function isInSafeZone(x, w) {
 function createPlacementTracker() {
     const rects = [];
     return {
-        add(x, y, w, h) { rects.push({ x, y, w, h }); },
+        rects,  // 暴露 rects 数组以便外部访问
+        add(x, y, w, h, type) { rects.push({ x, y, w, h, type }); },
         overlaps(x, y, w, h, gap = 10) {
             const rx = x - gap, ry = y - gap, rw = w + gap * 2, rh = h + gap * 2;
             for (const r of rects) {
@@ -57,76 +58,213 @@ function spawnParticles(x, y, color, count = 15) {
     }
 }
 
-// ── Platform generator — prevents overlap with proper tracking ─
-// Creates a platform with guaranteed non-overlapping placement
-// Usage: const platform = createPlatform(pt, elements, minY, maxY, minW, maxW, minX, maxX);
-//        elements.push(platform);
-//        pt.add(platform.x, platform.y, platform.w, platform.h);
-function createPlatform(pt, minY, maxY, minW, maxW, minX, maxX, gap = 15) {
-    const w = minW + Math.random() * (maxW - minW);
-    const h = 10;  // Fixed platform height
+// ── Bug generator — prevents placement on blue/yellow elements ─
+// Creates a bug with guaranteed safe distance from portals and keys
+// Usage: const bug = createBug(pt, elements, minX, maxX, y);
+//        if (bug) { elements.push(bug); pt.add(bug.x, bug.y, bug.w, bug.h); }
+function createBug(pt, elements, minX, maxX, y) {
+    const bugW = 20;
+    const bugH = 16;
+    const safetyGap = 25; // 与蓝色/黄色元素的安全距离
     
-    let px, py, attempts = 0;
-    const maxAttempts = 80;  // 增加尝试次数
-    const minVerticalGap = 120;  // 平台之间最小垂直间距（增加到120，进一步减少重叠）
-    const minHorizontalGap = 50;  // 同高度平台之间最小水平间距（增加到50）
+    // 获取蓝色元素（传送门）和黄色元素（钥匙、救援传送门）
+    const protectedElements = elements.filter(e => 
+        e.type === 'portal' ||  // 蓝色传送门
+        (e.subType === 'caseKey' && e.active) ||  // 黄色钥匙
+        e.isRescue  // 黄色救援传送门
+    );
     
-    // Try to find a valid position with proper overlap checking
-    for (attempts = 0; attempts < maxAttempts; attempts++) {
-        px = minX + Math.random() * (maxX - minX - w);
-        py = minY + Math.random() * (maxY - minY);
+    for (let attempt = 0; attempt < 30; attempt++) {
+        const bx = minX + Math.random() * (maxX - minX - bugW);
         
-        // Check safe zone
-        if (isInSafeZone(px, w)) continue;
+        // 检查是否在安全区域
+        if (isInSafeZone(bx, bugW)) continue;
         
-        // Check overlap with all existing elements (including other platforms)
-        if (!pt.overlaps(px, py, w, h, gap)) {
-            // Get all existing platforms from rects
-            const existingPlatforms = (pt.rects || []).filter(r => r.type === 'platform' || r.h === 10);
+        // 检查是否与已有元素重叠
+        if (pt.overlaps(bx, y, bugW, bugH, 15)) continue;
+        
+        // 检查是否与蓝色/黄色元素太近
+        let isSafe = true;
+        for (const protectedEl of protectedElements) {
+            const dx = Math.abs(bx + bugW/2 - (protectedEl.x + protectedEl.w/2));
+            const dy = Math.abs(y + bugH/2 - (protectedEl.y + protectedEl.h/2));
+            const distance = Math.sqrt(dx * dx + dy * dy);
             
-            // Check vertical spacing with all existing platforms
-            let validPosition = true;
-            for (const plat of existingPlatforms) {
-                // 检查垂直方向距离
-                const verticalDistance = Math.abs(plat.y - py);
-                
-                if (verticalDistance > 0 && verticalDistance < minVerticalGap) {
-                    // 垂直距离太近，检查水平方向是否有足够间距
-                    const leftEdge = Math.min(px, plat.x);
-                    const rightEdge = Math.max(px + w, plat.x + plat.w);
-                    const horizontalOverlap = rightEdge - leftEdge;
-                    
-                    // 如果水平重叠超过最小间距，则位置无效
-                    if (horizontalOverlap > minHorizontalGap) {
-                        validPosition = false;
-                        break;
-                    }
-                }
+            if (distance < safetyGap + Math.max(bugW, protectedEl.w) / 2) {
+                isSafe = false;
+                break;
             }
-            
-            if (validPosition) {
-                return { type: 'platform', x: px, y: py, w: w, h: h };
-            }
+        }
+        
+        if (isSafe) {
+            return { type: 'bug', x: bx, y: y, w: bugW, h: bugH };
         }
     }
     
-    // Fallback: return null if no valid position found
-    return null;
+    // Fallback: 返回一个位置（可能不够理想，但至少能生成）
+    const bx = minX + Math.random() * (maxX - minX - bugW);
+    return { type: 'bug', x: bx, y: y, w: bugW, h: bugH };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PLATFORM MANAGER — 统一的平台放置管理
+// ═══════════════════════════════════════════════════════════════
+// 集中管理所有平台放置逻辑，自动处理重叠检测和垂直间距检查
+
+function createPlatformManager() {
+    const rects = [];  // 内部追踪所有已放置的平台
+    const MIN_VERTICAL_GAP = 100;  // 最小垂直间距（玩家跳跃需要空间）
+    const MIN_GAP = 20;  // 基础间距
+    const MAX_ATTEMPTS = 100;  // 最大尝试次数
+    
+    // 检查是否在安全区域
+    const isSafe = (x, w) => {
+        for (const zone of SAFE_ZONES) {
+            if (x < zone.x + zone.w && x + w > zone.x) return false;
+        }
+        return true;
+    };
+    
+    // 检查与已有元素是否重叠
+    const hasOverlap = (x, y, w, h, gap = MIN_GAP) => {
+        const rx = x - gap, ry = y - gap, rw = w + gap * 2, rh = h + gap * 2;
+        for (const r of rects) {
+            if (rx < r.x + r.w && rx + rw > r.x && ry < r.y + r.h && ry + rh > r.y) return true;
+        }
+        return false;
+    };
+    
+    // 检查垂直间距（X方向有重叠时）
+    const checkVerticalSpacing = (x, y, w, h) => {
+        for (const r of rects) {
+            // 检查 X 方向是否重叠（考虑5px容差）
+            const xOverlap = !(x + w + 5 < r.x || x > r.x + r.w + 5);
+            if (xOverlap && Math.abs(y - r.y) < MIN_VERTICAL_GAP) {
+                return false;  // 垂直间距不足
+            }
+        }
+        return true;
+    };
+    
+    return {
+        rects,  // 暴露 rects 数组以便外部访问
+        
+        // 放置随机位置的平台
+        // 返回平台对象，或 null（无法找到有效位置）
+        placeRandom(minY, maxY, minW, maxW, minX, maxX, options = {}) {
+            const { isExitPlatform = false, isRescue = false } = options;
+            const w = minW + Math.random() * (maxW - minW);
+            const h = 10;  // 固定高度
+            
+            for (let i = 0; i < MAX_ATTEMPTS; i++) {
+                const px = minX + Math.random() * (maxX - minX - w);
+                const py = minY + Math.random() * (maxY - minY);
+                
+                if (!isSafe(px, w)) continue;
+                if (hasOverlap(px, py, w, h)) continue;
+                if (!checkVerticalSpacing(px, py, w, h)) continue;
+                
+                // 成功放置
+                const platform = { type: 'platform', x: px, y: py, w, h, isExitPlatform, isRescue };
+                rects.push(platform);
+                return platform;
+            }
+            
+            return null;  // 无法找到有效位置
+        },
+        
+        // 放置固定位置的平台
+        // 返回平台对象，或 null（位置无效）
+        placeAt(x, y, w, h, options = {}) {
+            const { isExitPlatform = false, isRescue = false } = options;
+            
+            if (!isSafe(x, w)) {
+                if (isExitPlatform) console.log(`[PlatformManager] Exit platform blocked by safe zone at (${x}, ${y})`);
+                return null;
+            }
+            if (hasOverlap(x, y, w, h)) {
+                if (isExitPlatform) console.log(`[PlatformManager] Exit platform overlaps at (${x}, ${y}), existing:`, rects);
+                return null;
+            }
+            // 出口平台和救援平台跳过垂直间距检查
+            if (!isExitPlatform && !isRescue && !checkVerticalSpacing(x, y, w, h)) return null;
+            
+            // 成功放置
+            const platform = { type: 'platform', x, y, w, h, isExitPlatform, isRescue };
+            rects.push(platform);
+            return platform;
+        },
+        
+        // 检查位置是否有效（不实际放置）
+        isValidPosition(x, y, w, h) {
+            if (!isSafe(x, w)) return false;
+            if (hasOverlap(x, y, w, h)) return false;
+            if (!checkVerticalSpacing(x, y, w, h)) return false;
+            return true;
+        },
+        
+        // 获取已放置的平台数量
+        getCount() {
+            return rects.length;
+        },
+        
+        // 合并另一个 tracker 的 rects
+        merge(otherTracker) {
+            if (otherTracker && otherTracker.rects) {
+                otherTracker.rects.forEach(r => rects.push(r));
+            }
+        },
+        
+        // 手动添加元素（向后兼容）
+        add(x, y, w, h) {
+            rects.push({ x, y, w, h });
+        },
+        
+        // 检查是否重叠（向后兼容）
+        overlaps(x, y, w, h) {
+            return hasOverlap(x, y, w, h, 0);
+        },
+        
+        // 尝试找到合适的X位置（向后兼容）
+        tryPlaceX(w, minX, maxX, y, h, gap) {
+            const actualGap = gap || 15;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                const px = minX + Math.random() * (maxX - minX - w);
+                if (!hasOverlap(px, y, w, h, actualGap)) {
+                    return px;
+                }
+            }
+            return minX + (maxX - minX - w) / 2;  // 返回中间位置作为 fallback
+        }
+    };
+}
+
+// ── Platform generator (兼容旧代码) — prevents overlap with proper tracking ─
+// Creates a platform with guaranteed non-overlapping placement
+// Usage: const platform = createPlatform(pt, elements, minY, maxY, minW, maxW, minX, maxX);
+//        if (platform) { elements.push(platform); pt.add(platform.x, platform.y, platform.w, platform.h); }
+function createPlatform(pt, minY, maxY, minW, maxW, minX, maxX, options = {}) {
+    const pm = createPlatformManager();
+    
+    // 如果传入的是旧的 tracker，合并其 rects
+    if (pt && pt.rects) {
+        pm.merge(pt);
+    }
+    
+    // 尝试放置平台
+    const platform = pm.placeRandom(minY, maxY, minW, maxW, minX, maxX, options);
+    
+    // 同步回 tracker
+    if (platform && pt && pt.add) {
+        pt.add(platform.x, platform.y, platform.w, platform.h, 'platform');
+    }
+    
+    return platform;
 }
 
 // ── Enhanced placement tracker with vertical awareness ─────
 function createEnhancedPlacementTracker() {
-    const tracker = createPlacementTracker();
-    tracker.rects = [];
-    
-    // Override add to track in both arrays
-    const originalAdd = tracker.add;
-    tracker.add = function(x, y, w, h) {
-        originalAdd.call(this, x, y, w, h);
-        this.rects.push({ x, y, w, h });
-    };
-    
-    return tracker;
+    return createPlatformManager();  // 现在使用统一的平台管理器
 }
 
 // ── Reachability analysis — detect dead zones ─────────────
@@ -282,18 +420,47 @@ function addRescuePortals(floor, analysis, sharedPt) {
     const rescuePortals = [];
     const groundY = floor.groundY || FLOOR_GROUND_LOCAL;
     
+    // 获取所有已存在的黄色元素（钥匙）位置
+    const existingYellowElements = floor.elements.filter(e => 
+        (e.subType === 'caseKey' && e.active) || e.isRescue
+    );
+    
     // 为每个无法到达的元素添加传送门对
     for (let i = 0; i < analysis.unreachableElements.length; i++) {
         const el = analysis.unreachableElements[i];
         const portalId = floor.index * 1000 + i + 100;
         
-        // 地面入口传送门
-        const entryX = 100 + i * 60;
-        const entryY = groundY - 22;
+        // 地面入口传送门 - 避免与黄色元素重叠
+        let entryX = 100 + i * 60;
+        let entryY = groundY - 22;
+        
+        // 检查入口传送门是否与黄色元素重叠，如果是则调整位置
+        const minGap = 30; // 最小间距
+        for (const yellowEl of existingYellowElements) {
+            const overlapX = Math.abs(entryX - yellowEl.x) < (18 + yellowEl.w + minGap);
+            const overlapY = Math.abs(entryY - yellowEl.y) < (22 + yellowEl.h + minGap);
+            if (overlapX && overlapY) {
+                entryX += 40; // 向右移动40px
+            }
+        }
+        
+        // 确保入口传送门在游戏区域内
+        if (entryX > GAME_W - 50) {
+            entryX = GAME_W - 50;
+        }
         
         // 目标传送门（靠近无法到达的元素）
-        const exitX = el.x - 30;
-        const exitY = el.y - 26;
+        let exitX = el.x - 30;
+        let exitY = el.y - 26;
+        
+        // 检查目标传送门是否与黄色元素重叠
+        for (const yellowEl of existingYellowElements) {
+            const overlapX = Math.abs(exitX - yellowEl.x) < (18 + yellowEl.w + minGap);
+            const overlapY = Math.abs(exitY - yellowEl.y) < (22 + yellowEl.h + minGap);
+            if (overlapX && overlapY) {
+                exitX -= 30; // 向左移动30px
+            }
+        }
         
         // 添加传送门对
         rescuePortals.push({
@@ -324,14 +491,11 @@ function addRescuePortals(floor, analysis, sharedPt) {
         );
         
         if (needsPlatform) {
-            rescuePortals.push({
-                type: 'platform',
-                x: exitX - 10,
-                y: exitY + 22,
-                w: 40,
-                h: 10,
-                isRescue: true
-            });
+            // 使用统一的 placeAt 方法，自动处理所有检查
+            const rescuePlatform = pt.placeAt(exitX - 10, exitY + 22, 40, 10, { isRescue: true });
+            if (rescuePlatform) {
+                rescuePortals.push(rescuePlatform);
+            }
         }
     }
     

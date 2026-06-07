@@ -76,6 +76,10 @@ function openCommentModeModal() {
     // Focus on input
     setTimeout(() => input.focus(), 100);
     
+    // Remove old listeners first (prevent memory leak)
+    input.removeEventListener('input', handleCommentInput);
+    input.removeEventListener('keydown', handleCommentKeydown);
+    
     // Add input listener
     input.addEventListener('input', handleCommentInput);
     
