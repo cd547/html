@@ -231,14 +231,30 @@ body {
     background: rgba(51, 170, 255, 0.2);
 }
 
-/* Bug - 红色三角形 */
+/* Bug - 橙黄色像素风格大便形状，3节 */
 .legend-bug {
-    width: 0;
-    height: 0;
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-bottom: 14px solid #ff3333;
-    background: transparent;
+    width: 14px;
+    height: 6px;
+    background: #ff9933;
+    position: relative;
+}
+.legend-bug::before {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 6px;
+    background: #ff9933;
+    top: -5px;
+    left: 2px;
+}
+.legend-bug::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 5px;
+    background: #ff9933;
+    top: -10px;
+    left: 4px;
 }
 
 /* Platform - 白色实心矩形 */

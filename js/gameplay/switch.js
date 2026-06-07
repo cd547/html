@@ -93,6 +93,10 @@ registerGameplay({
             ctx.fillText(el.keyIndex, el.x + 4, esy + 11);
             return true;
         }
+        // 已收集的 caseKey 不显示
+        if (el.subType === 'caseKey' && !el.active) {
+            return true;  // 返回 true 表示已处理，不绘制
+        }
         return false;
     },
 

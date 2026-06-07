@@ -120,6 +120,10 @@ registerModifier({
             ctx.fillText('free', el.x, esy + 11);
             return true;
         }
+        // 已使用的 freePtr 不显示
+        if (el.subType === 'freePtr' && !el.active) {
+            return true;  // 返回 true 表示已处理，不绘制
+        }
         return false;
     }
 });

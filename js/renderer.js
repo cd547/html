@@ -158,57 +158,8 @@ function drawFloor(floor, screenTopY) {
         }
         if (drawn) return;
 
-        if (el.type === 'decoration') return;
-
-        if (el.type === 'platform') {
-            // 平台：实心框（不要空心）
-            ctx.fillStyle = isCompleted ? '#555555' : '#ffffff';
-            ctx.fillRect(el.x, esy, el.w, el.h);
-            // Draw movement indicator for moving platforms
-            if (el.moveVx && !isCompleted) {
-                ctx.fillStyle = 'rgba(0,255,102,0.3)';
-                ctx.fillRect(el.moveMin, esy + el.h - 2, el.moveMax - el.moveMin, 2);
-            }
-        }
-        else if (el.type === 'bug') {
-            ctx.fillStyle = '#ff3333';
-            ctx.beginPath();
-            ctx.moveTo(el.x, esy + el.h);
-            ctx.lineTo(el.x + el.w / 2, esy);
-            ctx.lineTo(el.x + el.w, esy + el.h);
-            ctx.fill();
-            // Patrol range indicator
-            if (el.patrolVx && !isCompleted) {
-                ctx.fillStyle = 'rgba(255,51,51,0.15)';
-                ctx.fillRect(el.patrolMin, esy + el.h, el.patrolMax - el.patrolMin, 2);
-            }
-        }
-        else if (el.type === 'variable') {
-            if (el.subType === 'bool' && el.active) {
-                ctx.fillStyle = isCompleted ? '#006633' : '#00ff66';
-                ctx.fillRect(el.x, esy, el.w, el.h);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.fillText("T", el.x + 4, esy + 12);
-            }
-            else if (el.subType === 'break' && el.active) {
-                ctx.fillStyle = isCompleted ? '#006633' : '#00ff66';
-                ctx.save();
-                ctx.translate(el.x + el.w / 2, esy + el.h / 2);
-                ctx.rotate(Date.now() * 0.005);
-                ctx.fillRect(-el.w / 2, -el.h / 2, el.w, el.h);
-                ctx.restore();
-            }
-            else if (el.subType === 'counter') {
-                // 组合玩法：所有玩法都完成才显示绿色
-                ctx.fillStyle = allGameplaysCompleted ? '#00ff66'
-                              : (isCompleted ? '#555555' : '#ffffff');
-                ctx.fillRect(el.x, esy, el.w, el.h);
-                ctx.font = '10px "Courier New"';
-                ctx.fillStyle = '#666666';
-                ctx.fillText(`i++ (${el.current}/${el.target})`, el.x - 15, esy - 8);
-            }
-        }
+        // 使用分离的元素绘制函数
+        drawElement(ctx, el, esy, isCompleted, allGameplaysCompleted);
     });
 
     // 黄色救援传送门虚线关联

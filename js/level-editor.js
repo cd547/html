@@ -286,12 +286,12 @@ function redrawEditor() {
     
     // 绘制元素
     editorFloor.elements.forEach(el => {
-        drawElement(ctx, el);
+        drawEditorElement(ctx, el);
     });
 }
 
-// 绘制单个元素
-function drawElement(ctx, el) {
+// 绘制单个元素（编辑器专用，避免与 draw-elements.js 冲突）
+function drawEditorElement(ctx, el) {
     ctx.fillStyle = '#333';
     ctx.strokeStyle = '#666';
     ctx.lineWidth = 2;
