@@ -24,22 +24,26 @@ registerModifier({
     weight: 0.35,
 
     // Extra elements: free(ptr) potions — avoid existing elements
-    generateExtras(floorIndex, floor) {
-        const extras = [], pt = createPlacementTracker();
+    generateExtras(floorIndex, floor, sharedPt) {
+        const extras = [], pt = sharedPt || createEnhancedPlacementTracker();
         const gy = floor.groundY || FLOOR_GROUND_LOCAL;
 
         // Register already-placed elements so potions don't overlap
         (floor.elements || []).forEach(el => pt.add(el.x, el.y, el.w, el.h));
 
-        const count = 2 + Math.floor(Math.random() * 2);
+        const count = Math.floor(Math.random() * 2);  // Reduced: 0-1 potions (减少数量)
         for (let i = 0; i < count; i++) {
             const py = Math.random() > 0.5 ? gy - 14 : 50 + Math.random() * 20;
             const px = pt.tryPlaceX(14, 160, 600, py, 14, 15);
             extras.push({ type: 'variable', subType: 'freePtr', x: px, y: py, w: 14, h: 14, active: true });
             pt.add(px, py, 14, 14);
             if (py < gy - 20) {
-                extras.push({ type: 'platform', x: px - 18, y: py + 20, w: 50, h: 10 });
-                pt.add(px - 18, py + 20, 50, 10);
+                const platform = { type: 'platform', x: px - 18, y: py + 20, w: 50, h: 10 };
+                // 检查是否与已有元素重叠
+                if (!pt.overlaps(platform.x, platform.y, platform.w, platform.h)) {
+                    extras.push(platform);
+                    pt.add(platform.x, platform.y, platform.w, platform.h);
+                }
             }
         }
         return extras;
@@ -59,22 +63,29 @@ registerModifier({
         display.style.display = 'inline';
         const used = Math.floor(state.ramUsage);
         const ratio = state.ramUsage / state.ramMax;
+        
+        // 保持文本长度不变，避免 DOM 重排
         valueEl.textContent = String(used);
 
         // Color: green < 50% → yellow < 80% → red
+        const warningEl = document.getElementById('ram-warning');
         if (ratio > 0.8) {
             valueEl.className = 'red';
             fillEl.style.background = '#ff3333';
-            // Flash warning
-            valueEl.textContent = (Math.floor(Date.now() / 300) % 2 === 0)
-                ? '⚠ ' + used : String(used);
+            // 显示警告图标并闪烁
+            if (warningEl) {
+                warningEl.style.display = 'inline';
+                warningEl.style.opacity = (Math.floor(Date.now() / 300) % 2 === 0) ? '1' : '0.3';
+            }
         } else if (ratio > 0.5) {
             valueEl.className = '';
             valueEl.style.color = '#ffcc00';
             fillEl.style.background = '#ffcc00';
+            if (warningEl) warningEl.style.display = 'none';
         } else {
             valueEl.className = 'green';
             fillEl.style.background = '#00ff66';
+            if (warningEl) warningEl.style.display = 'none';
         }
         fillEl.style.width = Math.min(100, ratio * 100) + '%';
     },

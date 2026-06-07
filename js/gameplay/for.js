@@ -6,8 +6,8 @@ registerGameplay({
     id: 'for', name: 'FOR-loop', minFloor: 0,
     codeText: 'for (int i = [COUNT]; i < [TARGET]; i++) { DeadLoop(); }',
 
-    generateElements(floorIndex, floor) {
-        const elements = [], pt = createPlacementTracker();
+    generateElements(floorIndex, floor, sharedPt) {
+        const elements = [], pt = sharedPt || createEnhancedPlacementTracker();
         const gy = floor.groundY || FLOOR_GROUND_LOCAL;
 
         // Counter first
@@ -16,18 +16,19 @@ registerGameplay({
         elements.push({ type: 'variable', subType: 'counter', x: cx, y: gy - 5, w: 36, h: 12, current: 0, target });
         pt.add(cx, gy - 5, 36, 12);
 
-        // Obstacles avoid counter
-        const count = 2 + Math.floor(Math.random() * 3) + Math.floor(floorIndex / 3);
+        // Obstacles avoid counter (reduced count)
+        const count = Math.floor(Math.random() * 2);  // 0-1 platforms max (减少数量)
         for (let i = 0; i < count; i++) {
             if (Math.random() < 0.4) {
                 const ox = pt.tryPlaceX(20, 130, 610, gy - 16, 16, 18);
                 elements.push({ type: 'bug', x: ox, y: gy - 16, w: 20, h: 16 });
                 pt.add(ox, gy - 16, 20, 16);
             } else {
-                const py = 50 + Math.random() * 35;
-                const px = pt.tryPlaceX(60, 130, 610, py, 10, 5);
-                elements.push({ type: 'platform', x: px, y: py, w: 55 + Math.random() * 25, h: 10 });
-                pt.add(px, py, 60, 10);
+                const platform = createPlatform(pt, 45, 80, 55, 80, 60, 610, 15);
+                if (platform) {
+                    elements.push(platform);
+                    pt.add(platform.x, platform.y, platform.w, platform.h);
+                }
             }
         }
         return elements;
@@ -43,5 +44,11 @@ registerGameplay({
             return { bounce: -4, warpX: 220 };
         }
         return null;
+    },
+
+    checkWinCondition(p, floor) {
+        // 计数器必须达到目标值才能过关
+        const counter = floor.elements.find(e => e.subType === 'counter');
+        return counter && counter.current >= counter.target;
     }
 });

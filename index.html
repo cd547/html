@@ -11,14 +11,14 @@
 
     <div id="ui-header">
         <div class="system-title">[ RUNNING: SYSTEM_CORE.EXE ]</div>
-        <div id="score-board">Floor: <span class="green" id="floor-display">1</span> | Lines: <span class="green" id="lines-count">0</span><span id="ram-display" style="display:none"> | RAM: <span id="ram-value" class="green">128</span>/1024MB <span id="ram-bar"><span id="ram-fill"></span></span></span></div>
+        <div id="score-board">Floor: <span class="green" id="floor-display">1</span> | Lines: <span class="green" id="lines-count">0</span><span id="ram-display" style="display:none"> | RAM: <span id="ram-warning" style="display:none;color:#ff3333;">⚠</span> <span id="ram-value" class="green">128</span>/1024MB <span id="ram-bar"><span id="ram-fill"></span></span></span></div>
     </div>
 
     <!-- The game loop rendering viewport -->
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <canvas id="gameCanvas" width="950" height="600"></canvas>
 
     <div id="instructions">
-        <p>Controls: Move <span class="green">A/D</span> or <span class="green">←/→</span>, Jump <span class="green">W/Space</span>, Execute loop <span class="green">↓/S</span>. <span class="red">R</span> reboot, <span class="green">P</span> sprite.</p>
+        <p>Controls: Move <span class="green">A/D</span> or <span class="green">←/→</span>, Jump <span class="green">W/Space</span>, Execute loop <span class="green">↓/S</span>. <span class="red">R</span> reboot, <span class="green">P</span> sprite, <span class="green">J</span> comment mode.</p>
         <p>Goal: Collect <span class="green">Variables</span> to unlock each floor's gate, then reach <span class="green">return;</span> to ascend the compile tower. Avoid <span class="red">Bugs</span>!</p>
     </div>
     <div style="position:fixed; bottom:20px; right:20px; display:flex; gap:10px;">
@@ -31,6 +31,35 @@
         <button onclick="openLevelEditor()" style="padding:10px 20px; background:#880066; border:2px solid #ff33aa; color:#ff33aa; font-family:monospace; border-radius:4px; cursor:pointer;">
             🎨 编辑器
         </button>
+    </div>
+
+    <!-- Comment Mode Modal -->
+    <div id="comment-mode-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:#0a0a0a; border:2px solid #00ff66; padding:30px; max-width:700px; width:90%; border-radius:8px; box-shadow:0 0 30px rgba(0,255,102,0.3);">
+            <div style="color:#00ff66; font-family:monospace; font-size:18px; margin-bottom:20px; font-weight:bold;">
+                // COMMENT MODE — Skip Current Floor
+            </div>
+            <div style="color:#888; font-family:monospace; font-size:12px; margin-bottom:15px;">
+                Enter "//" at the beginning to comment out this floor's code and skip to the next level.
+            </div>
+            <div style="color:#666; font-family:monospace; font-size:11px; margin-bottom:10px;">
+                Floor <span id="comment-floor-num" style="color:#00ff66;">1</span> — <span id="comment-floor-type" style="color:#33aaff;">IF-statement</span>
+            </div>
+            <textarea id="comment-code-input" style="width:100%; height:120px; background:#000; border:1px solid #333; color:#00ff66; font-family:'Courier New', monospace; font-size:14px; padding:10px; resize:none; outline:none;" spellcheck="false"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+                <div id="comment-status" style="color:#ff3333; font-family:monospace; font-size:12px;">
+                    ⚠ Code not commented yet
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="cancelCommentMode()" style="padding:8px 20px; background:#333; border:1px solid #666; color:#999; font-family:monospace; border-radius:4px; cursor:pointer; font-size:13px;">
+                        Cancel (Esc)
+                    </button>
+                    <button id="comment-submit-btn" onclick="submitComment()" style="padding:8px 20px; background:#006600; border:1px solid #00ff00; color:#00ff00; font-family:monospace; border-radius:4px; cursor:pointer; font-size:13px; opacity:0.5; pointer-events:none;">
+                        ✓ Skip Floor (Enter)
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Pixel Editor Modal -->

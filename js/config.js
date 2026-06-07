@@ -8,19 +8,22 @@ const linesCountEl = document.getElementById('lines-count');
 const floorDisplayEl = document.getElementById('floor-display');
 
 // ── Layout constants ──────────────────────────────────────
-const FLOOR_HEIGHT      = 140;
+const FLOOR_HEIGHT      = 200;
 const FLOOR_PLAY_TOP    = 30;
-const FLOOR_GROUND_LOCAL = 110;
+const FLOOR_GROUND_LOCAL = 170;
+const FLOOR_CEILING_LOCAL = 30;  // 楼层顶部位置（玩家起始点）
 const GROUND_BLOCK_H    = 30;
-const CANVAS_W = 800;
+const GAME_W = 800;              // 游戏区域宽度
+const CODE_PANEL_W = 150;        // 代码略图面板宽度
+const CANVAS_W = GAME_W + CODE_PANEL_W;  // 总宽度 = 950
 const CANVAS_H = 600;
 
 // ── Floor height levels ───────────────────────────────────
 // Gameplay modules can request taller floors via floorHeightLevel:
-//   1 = standard (default, 140px)
-//   2 = double height (280px)
-//   3 = triple height (420px)
-//   5 = penta height (700px)
+//   1 = standard (default, 200px)
+//   2 = double height (400px)
+//   3 = triple height (600px)
+//   5 = penta height (1000px)
 const FLOOR_HEIGHT_LEVELS = {
     1: FLOOR_HEIGHT,
     2: FLOOR_HEIGHT * 2,
@@ -42,30 +45,30 @@ const SAFE_ZONES = [
 function buildCursorSprite() {
     const PW = 16, PH = 24;
     const rows = [
-        "................",
-        "................",
-        "................",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "...##########...",
-        "................",
-        "................"
+        "################",
+        "################",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "....########....",
+        "################",
+        "################"
     ];
     const data = new Array(PW * PH).fill(null);
     for (let y = 0; y < PH; y++) {
@@ -84,9 +87,9 @@ const state = {
     currentFloor: 0,
     scrollY: 0,
     targetScrollY: 0,
-    gravity: 0.5,
+    gravity: 0.35,
     player: {
-        x: 60, y: FLOOR_GROUND_LOCAL - 24, w: 16, h: 24,
+        x: 60, y: FLOOR_CEILING_LOCAL, w: 16, h: 24,
         vx: 0, vy: 0, speed: 4.5, jump: 10.5,
         isGrounded: false, trail: [], facing: 1,
         spriteData: buildCursorSprite(),  // default: blinking cursor
@@ -104,7 +107,10 @@ const state = {
     matrixLines: [],
     transitionTimer: 0,
     transitionPhase: 0,
-    flashAlpha: 0
+    flashAlpha: 0,
+    // Comment mode state
+    commentMode: false,       // 是否处于注释模式
+    commentText: ''           // 用户输入的注释代码
 };
 
 // ── Matrix digital rain ───────────────────────────────────

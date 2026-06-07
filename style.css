@@ -43,9 +43,9 @@ body {
 /* Lower operational metadata text blocks */
 #instructions {
     margin-top: 12px;
-    max-width: 800px;
+    max-width: 950px;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.2;
     color: #666666;
     text-align: center;
 }

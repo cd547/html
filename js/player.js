@@ -13,6 +13,13 @@ window.addEventListener('keydown', e => {
             restartFloor();                       // re-roll current floor, keep score
         }
     }
+    // J键进入注释模式
+    if (e.key.toLowerCase() === 'j' && state.gameState === 'PLAYING' && !state.commentMode) {
+        state.commentMode = true;
+        const floor = state.floors[state.currentFloor];
+        state.commentText = floor.codeText || '';
+        e.preventDefault();
+    }
 });
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
@@ -20,18 +27,70 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 function updatePlayer(floor) {
     const p = state.player;
 
+    // Initialize jump variables if not present
+    if (p.airJumps === undefined) p.airJumps = 0;
+    if (p._lastJumpTime === undefined) p._lastJumpTime = 0;
+    const maxAirJumps = 2;  // 最多3次跳跃（1次地面+2次空中）
+    const comboWindow = 500; // 连续跳跃时间窗口（毫秒）
+
     // Horizontal input .......................................
     if (keys['arrowleft'] || keys['a'])      { p.vx = -p.speed; p.facing = -1; }
     else if (keys['arrowright'] || keys['d']) { p.vx =  p.speed; p.facing =  1; }
     else                                       { p.vx = 0; }
 
+    // Reset air jumps if more than comboWindow has passed since last jump
+    const now = Date.now();
+    if (!p.isGrounded && p._lastJumpTime > 0 && now - p._lastJumpTime > comboWindow) {
+        p.airJumps = maxAirJumps; // Reset to max, preventing further air jumps
+    }
+
     // Jump ...................................................
-    if ((keys['arrowup'] || keys['w'] || keys[' ']) && p.isGrounded) {
-        p.vy = -p.jump;
+    // Allow jump if on ground OR have air jumps remaining
+    const jumpPressed = keys['arrowup'] || keys['w'] || keys[' '];
+    const canJump = p.isGrounded || (p.airJumps < maxAirJumps);
+    
+    if (jumpPressed && canJump && !p._jumpCooldown) {
+        // Calculate jump height with increasing power
+        // 第1次 地面跳跃: 0.7 × 原高度
+        // 第2次 空中跳跃: 1.2 × 原高度（必须在0.5秒内）
+        // 第3次 空中跳跃: 1.2 × 原高度（必须在0.5秒内）
+        let jumpMultiplier;
+        if (p.isGrounded) {
+            jumpMultiplier = 0.7;  // 增加第一次跳跃高度，给更多空中时间
+            p.airJumps = 0; // Reset air jump counter on ground jump
+        } else {
+            // airJumps: 0 -> 第2跳, 1 -> 第3跳
+            jumpMultiplier = 1.0; // 第2跳和第3跳都是1倍
+        }
+        const jumpHeight = -p.jump * jumpMultiplier;
+        
+        // 地面跳跃：直接设置速度（不叠加）
+        // 空中跳跃：叠加到当前速度
+        if (p.isGrounded) {
+            p.vy = jumpHeight;
+        } else {
+            p.vy += jumpHeight;
+            // 限制空中跳跃叠加后的最大向上速度
+            const maxUpwardSpeed = -p.jump * 1.8;
+            if (p.vy < maxUpwardSpeed) {
+                p.vy = maxUpwardSpeed;
+            }
+        }
+        
         p.isGrounded = false;
+        p._lastJumpTime = now; // Record jump time for combo check
+        
+        if (!p.isGrounded) {
+            p.airJumps++;
+        }
+        
+        p._jumpCooldown = 8; // 增加冷却时间，防止快速连跳
         const screenTopY = getFloorScreenTop(floor.index);
         spawnParticles(p.x + p.w / 2, p.y + screenTopY + p.h, '#ffffff', 5);
     }
+    
+    // Decrement jump cooldown
+    if (p._jumpCooldown > 0) p._jumpCooldown--;
 
     // Gravity ................................................
     if (!p.isGrounded) {
@@ -62,6 +121,7 @@ function updatePlayer(floor) {
         p.y = (floor.groundY || FLOOR_GROUND_LOCAL) - p.h;
         p.vy = 0;
         p.isGrounded = true;
+        p.airJumps = 0; // Reset air jumps when landing
     }
 
     // Ceiling collision (play area top) .....................
@@ -87,6 +147,7 @@ function updatePlayer(floor) {
                 p.y = el.y - p.h;
                 p.vy = 0;
                 p.isGrounded = true;
+                p.airJumps = 0; // Reset air jumps when landing on platform
             }
         }
 
@@ -158,7 +219,16 @@ function updatePlayer(floor) {
                     if (result) break;
                 }
             }
-            // Fall through to primary gameplay
+            // Fall through to all gameplays (组合玩法)
+            if (!result && floor.gameplays) {
+                for (const gp of floor.gameplays) {
+                    if (gp.handleInteraction) {
+                        result = gp.handleInteraction(p, el, floor);
+                        if (result) break;
+                    }
+                }
+            }
+            // Fallback to primary gameplay (for backward compatibility)
             if (!result && floor.gameplay && floor.gameplay.handleInteraction) {
                 result = floor.gameplay.handleInteraction(p, el, floor);
             }
@@ -189,16 +259,37 @@ function updatePlayer(floor) {
         if (el.type === 'portal' && el._cooldown > 0) el._cooldown--;
     });
 
-    // Check win condition: gameplay override or default position
-    const gp = floor.gameplay;
+    // Transition cooldown — prevent immediately triggering win condition after transition
+    if (p._transitionCooldown > 0) {
+        p._transitionCooldown--;
+    }
+
+    // Check win condition: all gameplays must be satisfied (组合玩法)
     let won = false;
-    if (gp && gp.checkWinCondition) {
-        won = gp.checkWinCondition(p, floor);
-    } else {
+    if (!p._transitionCooldown) {  // 只有在冷却结束后才能触发胜利条件
+        // 检查是否到达出口
         const rx = floor.returnX != null ? floor.returnX : 720;
         const ry = floor.returnY != null ? floor.returnY : ((floor.groundY || FLOOR_GROUND_LOCAL) - 50);
-        // p.y and ry are both floor-local — no screenY conversion needed
-        won = p.x > rx + 10 && p.y + p.h > ry && p.y < ry + 60;
+        const atExit = p.x > rx + 10 && p.y + p.h > ry && p.y < ry + 60;
+        
+        if (floor.gameplays && floor.gameplays.length > 0) {
+            // 检查所有玩法是否都满足胜利条件（组合玩法）
+            const allSatisfied = floor.gameplays.every(gp => {
+                if (gp.checkWinCondition) {
+                    return gp.checkWinCondition(p, floor);
+                }
+                return true;  // 如果没有胜利条件检查，默认为满足
+            });
+            
+            // 所有玩法都满足 且 到达出口 才能过关
+            won = allSatisfied && atExit;
+        } else if (floor.gameplay && floor.gameplay.checkWinCondition) {
+            // 单个玩法（向后兼容）
+            won = floor.gameplay.checkWinCondition(p, floor) && atExit;
+        } else {
+            // 默认胜利条件：到达出口
+            won = atExit;
+        }
     }
     if (won) advanceToNextFloor();
 }

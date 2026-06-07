@@ -15,10 +15,10 @@ function drawFloor(floor, screenTopY) {
     // Floor background tint .................................
     if (isCompleted) {
         ctx.fillStyle = 'rgba(0, 255, 102, 0.03)';
-        ctx.fillRect(0, screenTopY, CANVAS_W, fh);
+        ctx.fillRect(0, screenTopY, GAME_W, fh);  // 只在游戏区域绘制
     } else if (isCurrent) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
-        ctx.fillRect(0, screenTopY, CANVAS_W, fh);
+        ctx.fillRect(0, screenTopY, GAME_W, fh);  // 只在游戏区域绘制
     }
 
     // Floor separator (dotted line above) ...................
@@ -28,7 +28,7 @@ function drawFloor(floor, screenTopY) {
         ctx.setLineDash([4, 8]);
         ctx.beginPath();
         ctx.moveTo(20, screenTopY);
-        ctx.lineTo(CANVAS_W - 20, screenTopY);
+        ctx.lineTo(GAME_W - 20, screenTopY);  // 只在游戏区域绘制
         ctx.stroke();
         ctx.setLineDash([]);
     }
@@ -78,34 +78,95 @@ function drawFloor(floor, screenTopY) {
     // Ground block ..........................................
     ctx.fillStyle = isCompleted ? '#0a1a0a' : '#1a1a1a';
     ctx.fillRect(0, groundScreenY, CANVAS_W, GROUND_BLOCK_H);
+    
+    // Shadow line for bottommost floor (ground level)
+    // 如果是最底层，添加阴影线表示坚实地面
+    if (floor.index === state.floors.length - 1 || 
+        (floor.index + 1 < state.floors.length && 
+         getFloorScreenTop(floor.index + 1) > CANVAS_H)) {
+        ctx.strokeStyle = '#444444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, groundScreenY + GROUND_BLOCK_H);
+        ctx.lineTo(CANVAS_W, groundScreenY + GROUND_BLOCK_H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
 
     // Only draw interactive elements for current & completed floors
     if (isAbove && !isCompleted) return;
 
+    // 检查所有玩法是否都满足胜利条件（组合玩法需要全部完成）- 提前计算
+    let allGameplaysCompleted = floor.completed;
+    if (!allGameplaysCompleted && floor.gameplays && floor.gameplays.length > 0) {
+        allGameplaysCompleted = floor.gameplays.every(gpItem => {
+            if (gpItem.checkWinCondition) {
+                const p = state.player;
+                return gpItem.checkWinCondition(p, floor);
+            }
+            return true;
+        });
+    }
+
     // Elements ..............................................
     const gp = floor.gameplay;
+    const gameplays = floor.gameplays || [gp];  // 支持组合玩法
     const mods = floor.modifiers || [];
     floor.elements.forEach(el => {
         const esy = el.y + screenTopY;
 
-        // Try modifier drawElement first, then gameplay drawElement
+        // 救援传送门：优先绘制（黄色脉冲效果）
+        if (el.type === 'portal' && el.isRescue) {
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+            const alpha = 0.35 + pulse * 0.45;
+            
+            // 外层光晕
+            ctx.fillStyle = `rgba(255, 204, 0, ${alpha * 0.3})`;
+            ctx.fillRect(el.x - 4, esy - 4, el.w + 8, el.h + 8);
+            
+            // 主体框
+            ctx.strokeStyle = `rgba(255, 204, 0, ${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.strokeRect(el.x, esy, el.w, el.h);
+            
+            // 内部填充
+            ctx.fillStyle = `rgba(255, 204, 0, ${alpha * 0.4})`;
+            ctx.fillRect(el.x + 2, esy + 2, el.w - 4, el.h - 4);
+            
+            // 标签
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.font = 'bold 7px "Courier New"';
+            ctx.fillText('SOS', el.x + 2, esy + 14);
+            return;  // 绘制完成，跳过后续逻辑
+        }
+
+        // Try modifier drawElement first, then all gameplays drawElement
         let drawn = false;
         for (const mod of mods) {
             if (mod.drawElement && mod.drawElement(ctx, el, esy, floor)) { drawn = true; break; }
         }
-        if (!drawn && gp && gp.drawElement && gp.drawElement(ctx, el, esy, floor)) drawn = true;
+        // Check all gameplays for custom drawing (组合玩法)
+        if (!drawn) {
+            for (const gpItem of gameplays) {
+                if (gpItem && gpItem.drawElement && gpItem.drawElement(ctx, el, esy, floor)) {
+                    drawn = true;
+                    break;
+                }
+            }
+        }
         if (drawn) return;
 
         if (el.type === 'decoration') return;
 
         if (el.type === 'platform') {
+            // 平台：实心框（不要空心）
             ctx.fillStyle = isCompleted ? '#555555' : '#ffffff';
             ctx.fillRect(el.x, esy, el.w, el.h);
-            ctx.fillStyle = '#0c0c0c';
-            ctx.fillRect(el.x + 2, esy + 2, el.w - 4, el.h - 4);
             // Draw movement indicator for moving platforms
             if (el.moveVx && !isCompleted) {
-                ctx.fillStyle = 'rgba(0,255,102,0.2)';
+                ctx.fillStyle = 'rgba(0,255,102,0.3)';
                 ctx.fillRect(el.moveMin, esy + el.h - 2, el.moveMax - el.moveMin, 2);
             }
         }
@@ -139,7 +200,8 @@ function drawFloor(floor, screenTopY) {
                 ctx.restore();
             }
             else if (el.subType === 'counter') {
-                ctx.fillStyle = floor.gateUnlocked ? '#00ff66'
+                // 组合玩法：所有玩法都完成才显示绿色
+                ctx.fillStyle = allGameplaysCompleted ? '#00ff66'
                               : (isCompleted ? '#555555' : '#ffffff');
                 ctx.fillRect(el.x, esy, el.w, el.h);
                 ctx.font = '10px "Courier New"';
@@ -150,12 +212,24 @@ function drawFloor(floor, screenTopY) {
     });
 
     // Gate ...................................................
-    if (gp && gp.drawGate) {
-        gp.drawGate(ctx, floor, screenTopY);
-    } else {
+    // Check all gameplays for custom gate drawing (组合玩法)
+    let gateDrawn = false;
+    if (gameplays) {
+        for (const gpItem of gameplays) {
+            if (gpItem && gpItem.drawGate && gpItem.drawGate(ctx, floor, screenTopY, allGameplaysCompleted)) {
+                gateDrawn = true;
+                break;
+            }
+        }
+    }
+    if (!gateDrawn && gp && gp.drawGate) {
+        gp.drawGate(ctx, floor, screenTopY, allGameplaysCompleted);
+        gateDrawn = true;
+    }
+    if (!gateDrawn) {
         const gateScreenY = screenTopY + FLOOR_PLAY_TOP;
         const gateH = groundY - FLOOR_PLAY_TOP;
-        if (!floor.gateUnlocked) {
+        if (!allGameplaysCompleted) {
             ctx.fillStyle = '#ff3333';
             ctx.fillRect(floor.gateX, gateScreenY, 8, gateH);
             ctx.font = '10px "Courier New"';
@@ -170,15 +244,54 @@ function drawFloor(floor, screenTopY) {
         }
     }
 
-    // return; portal ........................................
+    // return; portal — 传送门效果 ........................................
     const retX = floor.returnX != null ? floor.returnX : 730;
+    // 门现在在楼层底部（地面上方）
     const retY = floor.returnY != null ? screenTopY + floor.returnY : screenTopY + groundY - 50;
-    if (floor.gateUnlocked || floor.completed) {
-        ctx.strokeStyle = '#00ff66';
+    const retW = 40, retH = 50;
+    
+    // 只有所有玩法都完成时才显示绿色出口
+    if (allGameplaysCompleted) {
+        // 传送门脉冲效果
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+        const alpha = 0.35 + pulse * 0.45;
+        
+        // 外层光晕
+        ctx.fillStyle = `rgba(0, 255, 102, ${alpha * 0.2})`;
+        ctx.fillRect(retX - 6, retY - 6, retW + 12, retH + 12);
+        
+        // 主体框
+        ctx.strokeStyle = `rgba(0, 255, 102, ${alpha})`;
         ctx.lineWidth = 2;
         ctx.setLineDash([]);
-        ctx.strokeRect(retX, retY, 40, 50);
+        ctx.strokeRect(retX, retY, retW, retH);
+        
+        // 内部填充
+        ctx.fillStyle = `rgba(0, 255, 102, ${alpha * 0.15})`;
+        ctx.fillRect(retX + 2, retY + 2, retW - 4, retH - 4);
+        
+        // 扫描线效果
+        const scanY = retY + (Date.now() * 0.05 % retH);
+        ctx.strokeStyle = `rgba(0, 255, 102, ${alpha * 0.6})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(retX, scanY);
+        ctx.lineTo(retX + retW, scanY);
+        ctx.stroke();
+        
+        // 标签
         ctx.fillStyle = '#00ff66';
+        ctx.font = 'bold 11px "Courier New"';
+        ctx.fillText("return;", retX - 5, retY - 6);
+    } else {
+        // 未解锁状态：暗淡的红色
+        ctx.strokeStyle = 'rgba(255, 51, 51, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(retX, retY, retW, retH);
+        ctx.setLineDash([]);
+        
+        ctx.fillStyle = 'rgba(255, 51, 51, 0.5)';
         ctx.font = 'bold 11px "Courier New"';
         ctx.fillText("return;", retX - 5, retY - 6);
     }
@@ -285,22 +398,33 @@ function getScrollbarGeo() {
     for (let i = 0; i < totalFloors; i++) {
         totalH += (state.floors[i] && state.floors[i].height) || FLOOR_HEIGHT;
     }
-    const trackX = CANVAS_W - 7, trackY = 2, trackW = 5, trackH = CANVAS_H - 4;
+    // 滚动条在代码面板右侧边缘
+    const trackX = CANVAS_W - 8, trackY = 2, trackW = 6, trackH = CANVAS_H - 4;
     const maxScroll = Math.max(1, totalH - CANVAS_H);
     const visibleRatio = CANVAS_H / (totalH + CANVAS_H);
     const thumbH = Math.max(20, visibleRatio * trackH);
     const scrollRatio = state.scrollY / maxScroll;
     const thumbY = trackY + scrollRatio * (trackH - thumbH);
-    return { totalFloors, trackX, trackY, trackW, trackH, maxScroll, thumbH, thumbY, visible: totalFloors > 3 || totalH > CANVAS_H };
+    return { totalFloors, trackX, trackY, trackW, trackH, maxScroll, thumbH, thumbY, visible: totalFloors > 0 };
 }
 
 // ── Scrollbar mouse → scroll conversion ──────────────────
 function scrollbarMouseToY(my) {
-    const g = getScrollbarGeo();
-    if (!g.visible) return;
-    const ratio = Math.max(0, Math.min(1, (my - g.trackY) / g.trackH));
+    // 计算总内容高度
+    let totalH = 0;
+    for (let i = 0; i < state.floors.length; i++) {
+        totalH += (state.floors[i] && state.floors[i].height) || FLOOR_HEIGHT;
+    }
+    
+    if (totalH <= CANVAS_H) return;
+    
+    const visibleRatio = CANVAS_H / totalH;
+    const sliderH = Math.max(30, visibleRatio * CANVAS_H);
+    const ratio = Math.max(0, Math.min(1, my / (CANVAS_H - sliderH)));
+    const maxScroll = Math.max(1, totalH - CANVAS_H);
+    
     // Set both directly for instant response — no lerp lag
-    state.scrollY = state.targetScrollY = ratio * g.maxScroll;
+    state.scrollY = state.targetScrollY = ratio * maxScroll;
 }
 
 // ── Scrollbar interaction state ──────────────────────────
@@ -309,13 +433,35 @@ let sbDragging = false;
 canvas.addEventListener('mousedown', function(e) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const g = getScrollbarGeo();
-    if (!g.visible) return;
-    // Click anywhere in scrollbar zone (wider hit area for usability)
-    if (mx >= g.trackX - 6 && mx <= g.trackX + g.trackW + 6 && my >= g.trackY && my <= g.trackY + g.trackH) {
-        sbDragging = true;
-        scrollbarMouseToY(my);
-        e.preventDefault();
+    
+    // 检查是否点击在代码面板区域
+    const panelX = GAME_W;
+    const panelW = CODE_PANEL_W;
+    
+    if (mx >= panelX && mx <= panelX + panelW && my >= 0 && my <= CANVAS_H) {
+        // 计算滑块位置
+        let totalH = 0;
+        for (let i = 0; i < state.floors.length; i++) {
+            totalH += (state.floors[i] && state.floors[i].height) || FLOOR_HEIGHT;
+        }
+        
+        if (totalH > CANVAS_H) {
+            const visibleRatio = CANVAS_H / totalH;
+            const sliderH = Math.max(30, visibleRatio * CANVAS_H);
+            const scrollRatio = state.scrollY / Math.max(1, totalH - CANVAS_H);
+            const sliderY = scrollRatio * (CANVAS_H - sliderH);
+            
+            // 检查是否点击在滑块上
+            if (my >= sliderY && my <= sliderY + sliderH) {
+                sbDragging = true;
+                e.preventDefault();
+            } else {
+                // 点击滑块外的区域，直接跳转到对应位置
+                sbDragging = true;
+                scrollbarMouseToY(my - sliderH / 2);
+                e.preventDefault();
+            }
+        }
     }
 });
 
@@ -323,37 +469,122 @@ canvas.addEventListener('mousemove', function(e) {
     if (!sbDragging) return;
     const rect = canvas.getBoundingClientRect();
     const my = e.clientY - rect.top;
-    scrollbarMouseToY(my);
+    
+    // 计算滑块高度
+    let totalH = 0;
+    for (let i = 0; i < state.floors.length; i++) {
+        totalH += (state.floors[i] && state.floors[i].height) || FLOOR_HEIGHT;
+    }
+    
+    if (totalH > CANVAS_H) {
+        const visibleRatio = CANVAS_H / totalH;
+        const sliderH = Math.max(30, visibleRatio * CANVAS_H);
+        const ratio = Math.max(0, Math.min(1, (my - sliderH / 2) / (CANVAS_H - sliderH)));
+        const maxScroll = Math.max(1, totalH - CANVAS_H);
+        state.scrollY = state.targetScrollY = ratio * maxScroll;
+    }
 });
 
 canvas.addEventListener('mouseup', () => { sbDragging = false; });
 canvas.addEventListener('mouseleave', () => { sbDragging = false; });
 
-// ── Draw scrollbar ──────────────────────────────────────
-function drawScrollbar() {
-    const g = getScrollbarGeo();
-    if (!g.visible) return;
-
-    // Track
-    ctx.fillStyle = sbDragging ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)';
-    ctx.fillRect(g.trackX, g.trackY, g.trackW, g.trackH);
-    // Track border
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+// ── Code panel — 显示所有楼层的代码略图（带VSCode风格滚动条） ──────────────────
+function drawCodePanel() {
+    const panelX = GAME_W;  // 面板起始X坐标
+    const panelW = CODE_PANEL_W;  // 代码面板宽度（包含滚动条）
+    
+    // 面板背景
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(panelX, 0, panelW, CANVAS_H);
+    
+    // 面板左边框
+    ctx.strokeStyle = '#333333';
     ctx.lineWidth = 1;
-    ctx.setLineDash([]);
-    ctx.strokeRect(g.trackX, g.trackY, g.trackW, g.trackH);
-
-    // Thumb
-    const thumbY = Math.max(g.trackY, Math.min(g.trackY + g.trackH - g.thumbH, g.thumbY));
-    ctx.fillStyle = sbDragging ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)';
-    ctx.fillRect(g.trackX, thumbY, g.trackW, g.thumbH);
-
-    // Floor indicator dot
-    if (g.totalFloors > 0) {
-        const dotY = g.trackY + (state.currentFloor / Math.max(1, g.totalFloors - 1)) * (g.trackH - 4);
-        ctx.fillStyle = '#00ff66';
-        ctx.fillRect(g.trackX - 1, dotY, g.trackW + 2, 3);
+    ctx.beginPath();
+    ctx.moveTo(panelX, 0);
+    ctx.lineTo(panelX, CANVAS_H);
+    ctx.stroke();
+    
+    // 标题
+    ctx.fillStyle = '#666666';
+    ctx.font = 'bold 10px "Courier New"';
+    ctx.fillText('CODE', panelX + 10, 18);
+    
+    // 绘制每个楼层的代码略图
+    let yOffset = 30;
+    const lineHeight = 12;
+    
+    for (let i = 0; i < state.floors.length && yOffset < CANVAS_H - 20; i++) {
+        const floor = state.floors[i];
+        const isCurrent = floor.index === state.currentFloor;
+        const isCompleted = floor.completed;
+        
+        // 楼层号
+        ctx.fillStyle = isCurrent ? '#00ff66' : (isCompleted ? '#006633' : '#444444');
+        ctx.font = 'bold 9px "Courier New"';
+        ctx.fillText(`${i + 1}:`, panelX + 5, yOffset);
+        
+        // 代码文本（截断显示）
+        const codeText = floor.codeText || '';
+        const displayText = codeText.length > 12 ? codeText.substring(0, 12) + '...' : codeText;
+        ctx.fillStyle = isCurrent ? '#ffffff' : (isCompleted ? '#00aa44' : '#666666');
+        ctx.font = '8px "Courier New"';
+        ctx.fillText(displayText, panelX + 25, yOffset);
+        
+        // 当前楼层指示器
+        if (isCurrent) {
+            ctx.fillStyle = '#00ff66';
+            ctx.fillRect(panelX + 2, yOffset - 8, 2, 10);
+        }
+        
+        yOffset += lineHeight;
+        
+        // 如果代码有多行，显示更多行
+        const codeLines = codeText.split('\n');
+        for (let j = 1; j < codeLines.length && yOffset < CANVAS_H - 20; j++) {
+            const lineText = codeLines[j].trim();
+            if (lineText) {
+                const displayLine = lineText.length > 14 ? lineText.substring(0, 14) + '...' : lineText;
+                ctx.fillStyle = isCurrent ? '#aaaaaa' : '#444444';
+                ctx.font = '7px "Courier New"';
+                ctx.fillText('  ' + displayLine, panelX + 5, yOffset);
+                yOffset += lineHeight - 2;
+            }
+        }
+        
+        yOffset += 4;  // 楼层之间的间距
     }
+    
+    // VSCode风格的滚动条滑块（半透明，覆盖整个面板宽度）
+    // 计算总内容高度
+    let totalH = 0;
+    for (let i = 0; i < state.floors.length; i++) {
+        totalH += (state.floors[i] && state.floors[i].height) || FLOOR_HEIGHT;
+    }
+    
+    if (totalH > CANVAS_H) {
+        const visibleRatio = CANVAS_H / totalH;
+        const sliderH = Math.max(30, visibleRatio * CANVAS_H);
+        const scrollRatio = state.scrollY / Math.max(1, totalH - CANVAS_H);
+        const sliderY = scrollRatio * (CANVAS_H - sliderH);
+        
+        // 半透明滑块
+        ctx.fillStyle = sbDragging ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(panelX, sliderY, panelW, sliderH);
+        
+        // 滑块边框（拖拽时更明显）
+        if (sbDragging) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(panelX, sliderY, panelW, sliderH);
+        }
+    }
+}
+
+// ── Draw scrollbar ──────────────────────────────────────
+// 滚动条现在集成在代码面板中（VSCode风格），这里留空
+function drawScrollbar() {
+    // VSCode风格滚动条已在 drawCodePanel() 中实现
 }
 
 // ── MAIN DRAW — Full render pipeline ──────────────────────
@@ -385,12 +616,16 @@ function draw() {
     drawModifierUI();
 
     // Draw all floors (bottom→top for proper overlap) ......
-    for (let i = 0; i < state.floors.length; i++) {
+    // 现在楼层0在最上面，所以从后往前渲染（索引大的先画，在下面）
+    for (let i = state.floors.length - 1; i >= 0; i--) {
         const screenTopY = getFloorScreenTop(i);
         const fh2 = state.floors[i].height || FLOOR_HEIGHT;
         if (screenTopY + fh2 < 0 || screenTopY > CANVAS_H) continue;
         drawFloor(state.floors[i], screenTopY);
     }
+
+    // Code panel (right side) ................................
+    drawCodePanel();
 
     // Player ................................................
     if (state.gameState !== 'CRASHED') {

@@ -129,9 +129,10 @@ function loadSceneToCurrentFloor(sceneId) {
     currentFloor.height = scene.height;
     currentFloor.groundY = scene.groundY;
 
-    // 重置玩家位置
+    // 重置玩家位置（从楼层顶部开始）
     state.player.x = 60;
-    state.player.y = scene.groundY - state.player.h;
+    const ceilingY = (scene.height ? scene.height - FLOOR_GROUND_LOCAL + FLOOR_CEILING_LOCAL : FLOOR_CEILING_LOCAL);
+    state.player.y = ceilingY;
     state.player.vx = 0;
     state.player.vy = 0;
     state.player.isGrounded = false;

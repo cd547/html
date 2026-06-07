@@ -7,8 +7,8 @@ registerGameplay({
     floorHeightLevel: 2,
     codeText: 'void* ptr = &gate; *(ptr) = unlock; // deref → teleport',
 
-    generateElements(floorIndex, floor) {
-        const elements = [], pt = createPlacementTracker();
+    generateElements(floorIndex, floor, sharedPt) {
+        const elements = [], pt = sharedPt || createEnhancedPlacementTracker();
         const gy = floor.groundY || FLOOR_GROUND_LOCAL;
 
         // Bool variable first
@@ -18,8 +18,12 @@ registerGameplay({
 
         // High platform + portals
         const platX = 620, platY = 42;
-        elements.push({ type: 'platform', x: platX, y: platY, w: 150, h: 10 });
-        pt.add(platX, platY, 150, 10);
+        const mainPlatform = { type: 'platform', x: platX, y: platY, w: 150, h: 10 };
+        // 检查是否与已有元素重叠
+        if (!pt.overlaps(mainPlatform.x, mainPlatform.y, mainPlatform.w, mainPlatform.h)) {
+            elements.push(mainPlatform);
+            pt.add(platX, platY, 150, 10);
+        }
 
         const portalId = floorIndex * 100 + 1;
         elements.push({ type: 'portal', portalId, x: 540, y: gy - 22, w: 18, h: 22 });
@@ -30,18 +34,19 @@ registerGameplay({
         // Player bottom: 18 + 24 = 42 (exactly at platform top)
         elements.push({ type: 'portal', portalId, x: platX + 20, y: 20, w: 18, h: 22 });
 
-        // Obstacles avoid variable + portals
-        const count = 2 + Math.floor(Math.random() * 2) + Math.floor(floorIndex / 5);
+        // Obstacles avoid variable + portals (reduced count)
+        const count = Math.floor(Math.random() * 2);  // 0-1 platforms max (减少数量)
         for (let i = 0; i < count; i++) {
             if (Math.random() < 0.35) {
                 const ox = pt.tryPlaceX(20, 130, 610, gy - 16, 16, 18);
                 elements.push({ type: 'bug', x: ox, y: gy - 16, w: 20, h: 16 });
                 pt.add(ox, gy - 16, 20, 16);
             } else {
-                const py = 50 + Math.random() * 35;
-                const px = pt.tryPlaceX(60, 130, 610, py, 10, 5);
-                elements.push({ type: 'platform', x: px, y: py, w: 55 + Math.random() * 25, h: 10 });
-                pt.add(px, py, 60, 10);
+                const platform = createPlatform(pt, 45, 80, 55, 80, 60, 610, 15);
+                if (platform) {
+                    elements.push(platform);
+                    pt.add(platform.x, platform.y, platform.w, platform.h);
+                }
             }
         }
         return elements;
@@ -54,6 +59,9 @@ registerGameplay({
 
     drawElement(ctx, el, esy) {
         if (el.type !== 'portal') return false;
+        // 跳过救援传送门（由 renderer.js 绘制）
+        if (el.isRescue) return false;
+        
         const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006), alpha = 0.35 + pulse * 0.45;
         ctx.fillStyle = `rgba(51,170,255,${alpha*0.3})`; ctx.fillRect(el.x-4, esy-4, el.w+8, el.h+8);
         ctx.strokeStyle = `rgba(51,170,255,${alpha})`; ctx.lineWidth = 2; ctx.setLineDash([]);
@@ -77,5 +85,9 @@ registerGameplay({
 
     setupFloor(floor) { floor.returnX = 700; floor.returnY = -8; },
 
-    checkWinCondition(p) { return p.x > 700 && p.y < 44 && p.y > 0; }
+    checkWinCondition(p, floor) {
+        // pointer 玩法只需要玩家到达传送门位置即可
+        // 位置检查由 player.js 的 atExit 统一处理
+        return true;
+    }
 });
